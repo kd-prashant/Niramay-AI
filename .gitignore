@@ -1,0 +1,36 @@
+# --- Frontend (Next.js) ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.env*
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.vercel
+
+# --- Backend (Python/FastAPI) ---
+venv/
+.venv/
+env/
+backend/__pycache__/
+
+# --- Large Assets & Dataset ---
+# We do not upload the dataset to GitHub as it is too large. 
+# We mention it in the README for others to download.
+PlantVillage/
+*.jpg
+*.jpeg
+*.png
+*.mp4
+!frontend/public/*.png
+!frontend/public/*.jpg
+!frontend/public/*.svg
+!frontend/public/*.ico
+
+# --- System Files ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+PRD.txt
