@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+@theme {
+  --color-veridian-50: #f0fdf4;
+  --color-veridian-100: #dcfce7;
+  --color-veridian-200: #bbf7d0;
+  --color-veridian-300: #86efac;
+  --color-veridian-400: #4ade80;
+  --color-veridian-500: #22c55e;
+  --color-veridian-600: #16a34a;
+  --color-veridian-700: #15803d;
+  --color-veridian-800: #166534;
+  --color-veridian-900: #14532d;
+  --color-veridian-950: #052e16;
+  
+  --color-apple-gray: #86868b;
+  --color-apple-light: #f5f5f7;
+  --color-apple-blue: #0066cc;
+
+  --radius-apple: 24px;
+}
+
+:root {
+  --background: #fbfbfd;
+  --foreground: #1d1d1f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #f5f5f7;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Premium Mesh Background */
+.mesh-gradient {
+  background-color: var(--background);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(21, 128, 61, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(34, 197, 94, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(21, 128, 61, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(34, 197, 94, 0.05) 0px, transparent 50%);
+}
+
+/* Apple 3D Glass */
+.glass-card {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
+}
+
+.dark .glass-card {
+  background: rgba(29, 29, 31, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Hover Glow */
+.hover-glow:hover {
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.3);
+  transform: translateY(-4px);
+}
+
+/* Animated Scan Beam */
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-1800px); }
+}
+
+.animate-marquee {
+  animation: marquee-scroll 40s linear infinite;
+}
+
+.pause-on-hover:hover .animate-marquee {
+  animation-play-state: paused;
+}
+
+@keyframes beam {
+  0% { transform: translateY(-100%); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(400%); opacity:0; }
+}
+
+.scan-beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 40%;
+  background: linear-gradient(180deg, transparent, rgba(34, 197, 94, 0.4), transparent);
+  animation: beam 2.5s ease-in-out infinite;
+  z-index: 20;
+}
+
+/* Text Gradients */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #1d1d1f 0%, #86868b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark .text-gradient-gold {
+  background: linear-gradient(135deg, #ffffff 0%, #a1a1a6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Precise Button */
+.apple-button {
+  background: #000;
+  color: #fff;
+  padding: 1rem 2rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.dark .apple-button {
+  background: #fff;
+  color: #000;
+}
+
+.apple-button:hover {
+  opacity: 0.85;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
