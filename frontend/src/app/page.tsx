@@ -49,20 +49,8 @@ export default function Home() {
       <section className="relative min-h-screen flex flex-col items-center justify-center pt-32 pb-20 overflow-hidden">
 
         <div className="absolute inset-0 -z-30 bg-black">
-          <motion.div
-            initial={{ scale: 1.1, opacity: 0 }}
-            animate={{ scale: 1, opacity: 0.3 }}
-            transition={{ duration: 3, ease: "easeOut" }}
-            className="w-full h-full"
-          >
-            <img src="/veridian_hero_bg_1775820090106.png" className="w-full h-full object-cover" alt="" />
-          </motion.div>
           <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black" />
         </div>
-
-        <BackgroundImage src="/media__1775821511761.png" y={img1Y} opacity={img1Op} scale={1.1} rotate={-4} left="-10%" top="115%" width="700px" />
-        <BackgroundImage src="/media__1775821522197.png" y={img2Y} opacity={img2Op} scale={1.05} rotate={6} left="75%" top="220%" width="800px" />
-        <BackgroundImage src="/media__1775821439475.png" y={img3Y} opacity={img3Op} scale={1.2} rotate={-2} left="-5%" top="360%" width="750px" />
 
         <motion.div
           style={{
