@@ -3,6 +3,26 @@ Metadata and recommendations for Veridian AI
 """
 
 DISEASE_METADATA = {
+    "Pepper,_bell___Bacterial_spot": {
+        "common_name": "Pepper Bacterial Spot",
+        "severity": "Moderate",
+        "treatment": {
+            "medicines": [
+                "Copper-based fungicides",
+                "Streptomycin sprays"
+            ],
+            "organic": [
+                "Seed treatment with hot water",
+                "Removal of infected debris"
+            ],
+            "action_plan": [
+                "1. Isolate the plant to prevent spread.",
+                "2. Apply copper spray at first sign.",
+                "3. Avoid handling plants when wet."
+            ]
+        },
+        "prevention": "Use certified seeds and rotate crops."
+    },
     "Tomato___Bacterial_spot": {
         "common_name": "Bacterial Spot",
         "severity": "Moderate",

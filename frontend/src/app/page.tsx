@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import DiagnosisPortal from "@/components/DiagnosisPortal";
+import HistoryDashboard from "@/components/HistoryDashboard";
 import { MoveRight, Zap, ShieldCheck, Globe, Play } from "lucide-react";
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -118,6 +119,9 @@ export default function Home() {
         <section id="scan" className="py-10 relative z-10">
           <DiagnosisPortal />
         </section>
+
+        {/* 📋 HISTORY SECTION */}
+        <HistoryDashboard />
 
         {/* 📊 VALUE PROPOSITION SECTION */}
         <section className="py-20 md:py-40 border-y border-white/5 relative z-10">

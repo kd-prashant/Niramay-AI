@@ -129,10 +129,34 @@ async def predict_disease(file: UploadFile = File(...)):
         image = Image.open(BytesIO(image_data))
         processed_image = preprocess_image(image)
         
+        # 🛡️ BIOLOGICAL SIGNATURE CHECK (UNIVERSAL FIX)
+        # Check if the image contains enough "Botany" colors (Greens, Yellows, Browns)
+        hsv_image = image.convert('HSV')
+        h = np.array(hsv_image.split()[0]) # Hue channel
+        # Leaves are typically in Hue 30-90 (Green) or 0-30 (Yellow/Brown/Diseased)
+        # We check if a decent % of pixels fall in the plant range
+        plant_pixels = np.sum((h < 90) & (h > 10)) 
+        is_biological = (plant_pixels / (image.size[0] * image.size[1])) > 0.15
+
+        if not is_biological:
+            return {
+                "success": True,
+                "prediction": {
+                    "common_name": "Invalid Sample",
+                    "class_name": "NON_PLANT_IMAGE",
+                    "confidence": 0,
+                    "severity": "None"
+                },
+                "recommendations": {
+                    "treatment": {"medicines": ["N/A"], "organic": ["N/A"], "action_plan": ["Please upload a clear photo of a crop leaf."]},
+                    "prevention": ["N/A"]
+                }
+            }
+
         # Inference
         predictions = model.predict(processed_image, verbose=0)
         predicted_class_idx = np.argmax(predictions[0])
-        confidence = float(predictions[0][predicted_class_idx])
+        confidence = float(predictions[0][predicted_class_idx]) * 100
         disease_name = class_names[predicted_class_idx]
         
         # Get enriched metadata
