@@ -1,9 +1,10 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import DiagnosisPortal from "@/components/DiagnosisPortal";
 import HistoryDashboard from "@/components/HistoryDashboard";
+import AIChatAssistant from "@/components/AIChatAssistant";
 import { MoveRight, Zap, ShieldCheck, Globe, Play } from "lucide-react";
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -33,6 +34,7 @@ function BackgroundImage({ src, y, opacity, scale, rotate, left, top, width = "6
 
 export default function Home() {
   const { t } = useLanguage();
+  const [currentDiagnosis, setCurrentDiagnosis] = useState<string | null>(null);
   const { scrollYProgress } = useScroll();
 
   const artY = useTransform(scrollYProgress, [0, 1], [0, -600]);
@@ -117,7 +119,7 @@ export default function Home() {
 
         {/* 🔬 SCANNER SECTION */}
         <section id="scan" className="py-10 relative z-10">
-          <DiagnosisPortal />
+          <DiagnosisPortal onDiagnosis={(disease) => setCurrentDiagnosis(disease)} />
         </section>
 
         {/* 📋 HISTORY SECTION */}
@@ -166,6 +168,8 @@ export default function Home() {
           {t('scan_btn')}
         </button>
       </section>
+
+      <AIChatAssistant scanContext={currentDiagnosis || undefined} />
 
     </div>
   );

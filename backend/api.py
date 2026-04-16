@@ -8,11 +8,41 @@ import numpy as np
 import os
 from PIL import Image
 from io import BytesIO
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from tensorflow.keras.models import load_model
 import uvicorn
 from constants import DISEASE_METADATA, DEFAULT_METADATA
+from pydantic import BaseModel
+from google import genai
+from dotenv import load_dotenv
+
+# Load security environment variables
+load_dotenv()
+
+# Initialize Gemini AI Client
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        print("Veridian Engine: Discovering available AI brains...")
+        # Just a quick check to see what models this key can see
+        for m in client.models.list():
+            print(f"  - Available ID: {m.name}")
+    except Exception as e:
+        print(f"WARNING: Could not list models: {e}")
+        client = None
+else:
+    print("WARNING: GEMINI_API_KEY not found in environment. Chat features will be disabled.")
+    client = None
+
+
+
+class ChatRequest(BaseModel):
+    message: str
+    disease_context: str = None
+    language: str = "EN"
+
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -179,6 +209,46 @@ async def predict_disease(file: UploadFile = File(...)):
     except Exception as e:
         print(f"Error during prediction: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+
+@app.post("/chat")
+async def chat_with_assistant(request: ChatRequest):
+    """
+    Expert AI Chat interface for farmers
+    """
+    if not client:
+        raise HTTPException(status_code=503, detail="Chat engine currently unavailable")
+    
+    try:
+        # Construct a high-fidelity system prompt for the Plant Doctor persona
+        system_persona = (
+            "You are the Niramay AI Plant Doctor, a world-class agricultural expert. "
+            "Your tone is professional, encouraging, and deeply knowledgeable about crops like Tomato, Potato, and Pepper. "
+            f"Always reply in {'HINDI' if request.language == 'HI' else 'ENGLISH'}. "
+            "Provide specific, actionable steps for treatment and follow-up. "
+        )
+
+        context_aware_prompt = system_persona
+        if request.disease_context:
+            context_aware_prompt += f"The user just scanned a leaf and the diagnosis was: {request.disease_context}. Focus your advice on this specific condition. "
+        
+        full_query = f"{context_aware_prompt}\n\nFarmer Question: {request.message}"
+
+        # Using the exact alias found in your discovery list
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=full_query
+        )
+        
+        return {
+            "success": True,
+            "response": response.text,
+            "persona": "Plant Doctor"
+        }
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Chat Engine Error: {error_msg}")
+        raise HTTPException(status_code=500, detail=f"AI Engine Error: {error_msg}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

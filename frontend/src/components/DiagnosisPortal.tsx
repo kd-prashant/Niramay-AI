@@ -12,7 +12,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-export default function DiagnosisPortal() {
+export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (disease: string) => void }) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const [image, setImage] = useState<File | null>(null);
@@ -105,6 +105,7 @@ export default function DiagnosisPortal() {
 
         setResult(scanResult);
         setShowError(false);
+        if (onDiagnosis) onDiagnosis(data.prediction.common_name);
 
         // 💾 PERSIST TO SUPABASE (Matching your specific table columns)
         try {
