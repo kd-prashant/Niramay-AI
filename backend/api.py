@@ -21,20 +21,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Initialize Gemini AI Client
+# Initialize Gemini AI Client
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+client = None
+
 if GEMINI_API_KEY:
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
-        print("Veridian Engine: Discovering available AI brains...")
-        # Just a quick check to see what models this key can see
-        for m in client.models.list():
-            print(f"  - Available ID: {m.name}")
+        print("Niramay Engine: Synchronizing available AI brains...")
+        # Check available models but don't crash if discovery fails
+        try:
+            for m in client.models.list():
+                print(f"  - Available ID: {m.name}")
+        except Exception as discovery_error:
+            print(f"Niramay Engine Warning: Discovery incomplete: {discovery_error}")
     except Exception as e:
-        print(f"WARNING: Could not list models: {e}")
+        print(f"ERROR: Failed to initialize AI Client: {e}")
         client = None
 else:
     print("WARNING: GEMINI_API_KEY not found in environment. Chat features will be disabled.")
-    client = None
 
 
 
@@ -46,7 +51,7 @@ class ChatRequest(BaseModel):
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Veridian AI Diagnostic Engine",
+    title="Niramay AI Diagnostic Engine",
     description="Advanced plant health decision support API",
     version="2.0.0"
 )
@@ -75,11 +80,11 @@ def load_resources():
     classes_path = os.path.join(base_path, 'class_names.json')
     
     try:
-        print("Veridian Engine: Loading AI model...")
+        print("Niramay Engine: Loading AI model...")
         model = load_model(model_path)
         print("✓ Model loaded successfully")
         
-        print("Veridian Engine: Loading class names...")
+        print("Niramay Engine: Loading class names...")
         with open(classes_path, 'r') as f:
             class_names = json.load(f)
         print(f"✓ Loaded {len(class_names)} disease classes")
@@ -116,7 +121,7 @@ def get_recommendation(disease_name: str):
 async def startup_event():
     """Load resources when API starts"""
     print("=" * 60)
-    print("VERIDIAN AI DIAGNOSTIC API - STARTING")
+    print("NIRAMAY AI DIAGNOSTIC API - STARTING")
     print("=" * 60)
     load_resources()
     print("=" * 60)
@@ -128,7 +133,7 @@ async def root():
     """API health check endpoint"""
     return {
         "status": "online",
-        "service": "Veridian AI Diagnostic Engine",
+        "service": "Niramay AI Diagnostic Engine",
         "version": "2.0.0",
         "features": ["Image Classification", "Treatment Recommendations", "Severity Analysis"]
     }
@@ -197,7 +202,7 @@ async def predict_disease(file: UploadFile = File(...)):
             "prediction": {
                 "class_name": disease_name,
                 "common_name": metadata["common_name"],
-                "confidence": round(confidence * 100, 2),
+                "confidence": round(confidence, 2),
                 "severity": metadata["severity"]
             },
             "recommendations": {
@@ -220,10 +225,14 @@ async def chat_with_assistant(request: ChatRequest):
     
     try:
         # Construct a high-fidelity system prompt for the Plant Doctor persona
+        primary_lang = "HINDI" if request.language == "HI" else "ENGLISH"
+        
         system_persona = (
             "You are the Niramay AI Plant Doctor, a world-class agricultural expert. "
             "Your tone is professional, encouraging, and deeply knowledgeable about crops like Tomato, Potato, and Pepper. "
-            f"Always reply in {'HINDI' if request.language == 'HI' else 'ENGLISH'}. "
+            f"The user's preferred interface language is {primary_lang}. "
+            "IMPORTANT: If the user asks their question in a specific language (like Hindi or English), "
+            "you MUST respond in that same language regardless of the interface setting. "
             "Provide specific, actionable steps for treatment and follow-up. "
         )
 

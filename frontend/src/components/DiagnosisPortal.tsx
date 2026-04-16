@@ -21,8 +21,9 @@ export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (diseas
   const [result, setResult] = useState<any>(null);
   const [showError, setShowError] = useState(false);
 
-  // 🌦️ WEATHER STATE
+  // 🌦️ WEATHER & GEO STATE
   const [location, setLocation] = useState<string>("Detecting...");
+  const [coords, setCoords] = useState<{lat: number, lon: number} | null>(null);
   const [weatherData, setWeatherData] = useState({ temp: '--', humidity: 0, condition: '--' });
   const [riskLevel, setRiskLevel] = useState<string>("Normal");
 
@@ -30,6 +31,7 @@ export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (diseas
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(async (position) => {
         const { latitude, longitude } = position.coords;
+        setCoords({ lat: latitude, lon: longitude });
         const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
         try {
@@ -114,7 +116,9 @@ export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (diseas
             plant_name: data.prediction.common_name,
             confidence: data.prediction.confidence,
             image_url: "", // Placeholder as images are stored locally for now
-            user_id: user?.id // Link scan to the authenticated user
+            user_id: user?.id, // Link scan to the authenticated user
+            latitude: coords?.lat,
+            longitude: coords?.lon
           }]);
           
           if (error) {
@@ -151,7 +155,7 @@ export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (diseas
 
       {/* 🏙️ SECTION HEADER */}
       <div className="mb-12 md:mb-24 text-center">
-        <div className="inline-block px-4 py-1.5 rounded-full bg-veridian-500/10 text-veridian-500 text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] mb-4 md:mb-6 border border-veridian-500/20">Biosphere Monitor</div>
+        <div className="inline-block px-4 py-1.5 rounded-full bg-veridian-500/10 text-veridian-500 text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] mb-4 md:mb-6 border border-veridian-500/20">Health Analytics</div>
         <h2 className="text-4xl md:text-8xl font-black tracking-tighter leading-none mb-6 md:mb-8">{t('diag_title')}</h2>
         <p className="max-w-2xl mx-auto text-base md:text-xl text-white/40 font-bold leading-relaxed">{t('diag_p')}</p>
       </div>

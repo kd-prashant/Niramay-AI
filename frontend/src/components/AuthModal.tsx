@@ -2,12 +2,10 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X, Sprout, ShieldCheck, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { X, Mail, Lock, ArrowRight, Github, Loader2, Leaf } from 'lucide-react';
-import { useLanguage } from '@/context/LanguageContext';
 
-export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { t } = useLanguage();
+export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,123 +17,123 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
     setLoading(true);
     setError(null);
 
-    // 💡 IDENTITY TRICK: Using a more standard system domain pattern
-    const sanitizedId = email.trim().toLowerCase().replace(/\s+/g, '');
-    const systemEmail = `${sanitizedId}@farm.niramay.com`;
-
     try {
-      const { error } = isLogin 
-        ? await supabase.auth.signInWithPassword({ email: systemEmail, password })
-        : await supabase.auth.signUp({ email: systemEmail, password });
+      // 🛠️ USERID FIX: Automatically append dummy domain if no @ found
+      const finalEmail = email.includes('@') ? email : `${email}@niramay.ai`;
 
-      if (error) throw error;
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({ email: finalEmail, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({ email: finalEmail, password });
+        if (error) throw error;
+        alert("Account Created! You can now log in with your Farmer ID.");
+      }
       onClose();
     } catch (err: any) {
-      // Clean up error messages for the user
-      const message = err.message === "User already registered" 
-        ? "Farmer ID already exists. Please choose another."
-        : err.message === "Invalid login credentials"
-        ? "Incorrect Farmer ID or Security Credential."
-        : err.message;
-      setError(message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-black/80 backdrop-blur-xl"
-        />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[48px] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]"
+      {isOpen && (
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center px-6"
         >
-          {/* Top Visual Decor */}
-          <div className="h-32 bg-veridian-500/20 relative flex items-center justify-center overflow-hidden">
-             <Leaf className="text-veridian-500/40 rotate-12" size={80} />
-             <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 to-transparent" />
-          </div>
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={onClose} />
 
-          <button onClick={onClose} className="absolute top-6 right-6 p-3 bg-white/5 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all">
-            <X size={20} />
-          </button>
-
-          <div className="p-10 md:p-14">
-            <div className="mb-10 text-center">
-              <h2 className="text-4xl font-black tracking-tighter mb-3">
-                {isLogin ? 'Welcome Back' : 'Join Niramay AI'}
-              </h2>
-              <p className="text-white/40 font-bold uppercase tracking-widest text-[10px]">
-                {isLogin ? 'Authorized Personnel Only' : 'Start protecting your farm today'}
-              </p>
+          {/* Modal */}
+          <motion.div
+            initial={{ scale: 0.9, y: 20, rotate: -2 }}
+            animate={{ scale: 1, y: 0, rotate: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            className="w-full max-w-[500px] bg-zinc-900 border border-white/10 rounded-[60px] p-12 md:p-16 shadow-[0_50px_100px_rgba(0,0,0,1)] relative z-10 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="text-center mb-12">
+                <div className="w-20 h-20 rounded-[30px] bg-veridian-500 flex items-center justify-center text-white mx-auto mb-8 shadow-2xl">
+                    <Sprout size={40} />
+                </div>
+                <h2 className="text-4xl font-black tracking-tighter mb-4 italic uppercase">
+                    {isLogin ? "Welcome Back" : "Join the Field"}
+                </h2>
+                <p className="text-white/30 text-xs font-black uppercase tracking-[0.3em]">
+                    Niramay Secure Gateway
+                </p>
             </div>
 
+            {/* Form */}
             <form onSubmit={handleAuth} className="space-y-6">
-              <div className="space-y-4">
-                <div className="relative group">
-                  <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-veridian-500 transition-colors" size={20} />
-                  <input
-                    type="text"
-                    placeholder="Farmer ID (Unique Username)"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-white/5 border border-white/5 focus:border-veridian-500/50 rounded-[24px] py-6 pl-16 pr-6 outline-none transition-all font-bold text-white placeholder:text-white/10"
-                    required
-                  />
+                <div className="space-y-4">
+                    <div className="relative group">
+                        <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-veridian-500 transition-colors" size={20} />
+                        <input 
+                            type="text" 
+                            placeholder="Farmer ID (e.g. farmer1)"
+                            className="w-full bg-white/5 border border-white/10 py-6 pl-14 pr-6 rounded-3xl outline-none focus:border-veridian-500/50 transition-all font-bold text-white placeholder:text-white/10"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <div className="relative group">
+                        <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-veridian-500 transition-colors" size={20} />
+                        <input 
+                            type="password" 
+                            placeholder="Security Key"
+                            className="w-full bg-white/5 border border-white/10 py-6 pl-14 pr-6 rounded-3xl outline-none focus:border-veridian-500/50 transition-all font-bold text-white placeholder:text-white/10"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
                 </div>
-                <div className="relative group">
-                  <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-veridian-500 transition-colors" size={20} />
-                  <input
-                    type="text"
-                    placeholder="Security Credential"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-white/5 border border-white/5 focus:border-veridian-500/50 rounded-[24px] py-6 pl-16 pr-6 outline-none transition-all font-bold text-white placeholder:text-white/10"
-                    required
-                  />
-                </div>
-              </div>
 
-              {error && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest leading-loose">
-                  {error}
-                </motion.p>
-              )}
+                {error && (
+                    <div className="p-4 bg-red-600/10 border border-red-600/20 rounded-2xl text-red-500 text-[10px] font-black uppercase text-center tracking-widest">
+                        {error}
+                    </div>
+                )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-6 rounded-[24px] bg-veridian-500 text-white font-black text-lg hover:bg-veridian-400 transition-all flex items-center justify-center gap-3 shadow-[0_20px_40px_-10px_rgba(34,197,94,0.3)] disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="animate-spin" size={24} /> : (isLogin ? 'Unlock Portal' : 'Create Account')}
-                {!loading && <ArrowRight size={24} />}
-              </button>
+                <button 
+                    disabled={loading}
+                    className="w-full py-7 bg-white text-black font-black text-xl rounded-[30px] shadow-2xl hover:bg-veridian-500 hover:text-white active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
+                >
+                    {loading ? <Loader2 className="animate-spin" /> : isLogin ? "Authorize Access" : "Establish Link"}
+                    {!loading && <ArrowRight size={24} />}
+                </button>
             </form>
 
-            <div className="mt-10 pt-10 border-t border-white/5 text-center">
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                type="button"
-                className="text-white/30 hover:text-white text-[11px] font-black uppercase tracking-[0.2em] transition-all"
-              >
-                {isLogin ? "Don't have an ID? Construct one" : "Already registered? Authenticate"}
-              </button>
+            {/* Footer */}
+            <div className="mt-12 text-center">
+                <p className="text-white/20 text-[11px] font-bold mb-4 uppercase tracking-[0.2em]">
+                    {isLogin ? "New to the platform?" : "Already have access?"}
+                </p>
+                <button 
+                    onClick={() => setIsLogin(!isLogin)}
+                    className="text-veridian-500 font-black text-sm uppercase tracking-[0.2em] hover:opacity-80 transition-opacity"
+                >
+                    {isLogin ? "Sign Up Now" : "Sign In Here"}
+                </button>
             </div>
-          </div>
+
+            {/* Decoration */}
+            <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-veridian-500/5 blur-[100px] rounded-full pointer-events-none" />
+            <div className="absolute top-8 right-8">
+                <button onClick={onClose} className="p-4 rounded-full bg-white/5 text-white/20 hover:text-white">
+                    <X size={20} />
+                </button>
+            </div>
+          </motion.div>
         </motion.div>
-      </div>
+      )}
     </AnimatePresence>
   );
 }

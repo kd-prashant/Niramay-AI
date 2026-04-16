@@ -4,7 +4,9 @@ import React, { useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import DiagnosisPortal from "@/components/DiagnosisPortal";
 import HistoryDashboard from "@/components/HistoryDashboard";
+import HealthInsights from "@/components/HealthInsights";
 import AIChatAssistant from "@/components/AIChatAssistant";
+import Navbar from "@/components/Navbar";
 import { MoveRight, Zap, ShieldCheck, Globe, Play } from "lucide-react";
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -121,6 +123,9 @@ export default function Home() {
         <section id="scan" className="py-10 relative z-10">
           <DiagnosisPortal onDiagnosis={(disease) => setCurrentDiagnosis(disease)} />
         </section>
+
+        {/* 📈 ANALYTICS & INSIGHTS */}
+        <HealthInsights />
 
         {/* 📋 HISTORY SECTION */}
         <HistoryDashboard />

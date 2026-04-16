@@ -12,7 +12,8 @@ interface Translations {
 
 const translations: Translations = {
   brand: { EN: "Niramay AI", HI: "निरामय AI" },
-  tagline: { EN: "HEALTHY PLANTS, FLOURISHING HARVEST.", HI: "स्वस्थ पौधे, समृद्ध फसल।" },
+  tagline: { EN: "HEALING THE EARTH, ONE LEAF AT A TIME.", HI: "स्वस्थ पौधे, समृद्ध फसल।" },
+  navbar_tagline: { EN: "PRECISION AGRI-TECH", HI: "सटीक कृषि-तकनीक" },
   hero_title: { EN: "The future of", HI: "खेती का भविष्य" },
   hero_green: { EN: "farming starts here.", HI: "यहाँ से शुरू होता है।" },
   hero_p: { EN: "Niramay AI uses advanced clinical-grade bio-neural networks to protect your crops. Empowering every farmer with high-tech certainty.", HI: "निरामय AI आपकी फसलों की सुरक्षा के लिए उन्नत क्लिनिकल-ग्रेड बायो-न्यूरल नेटवर्क का उपयोग करता है। हर किसान को हाई-टेक निश्चितता के साथ सशक्त बनाना।" },
@@ -108,7 +109,24 @@ const translations: Translations = {
   'Maintain hilling.': { EN: "Maintain hilling.", HI: "मिट्टी चढ़ाना (hilling) जारी रखें।" },
   'INVALID_SAMPLE': { EN: "Analysis Inconclusive", HI: "विश्लेषण अनिर्णायक" },
   'INVALID_DESC': { EN: "Confidence is too low. Please upload a clear photo of the infected leaf.", HI: "विश्वास स्तर बहुत कम है। कृपया संक्रमित पत्ती का स्पष्ट फोटो अपलोड करें।" },
-  'RETRY_SCAN': { EN: "Retry with Clear Photo", HI: "स्पष्ट फोटो के साथ पुनः प्रयास करें" }
+  'RETRY_SCAN': { EN: "Retry with Clear Photo", HI: "स्पष्ट फोटो के साथ पुनः प्रयास करें" },
+
+  // 📈 HEALTH INSIGHTS & ANALYTICS
+  'deep_insights': { EN: "Deep Insights", HI: "गहन अंतर्दृष्टि" },
+  'insights_desc': { EN: "AI-Driven Telemetry and Biological Threat Analysis for your entire farm ecosystem.", HI: "आपके पूरे कृषि पारिस्थितिकी तंत्र के लिए AI-संचालित टेलीमेट्री और जैविक खतरे का विश्लेषण।" },
+  'total_ops': { EN: "Total Operations", HI: "कुल संचालन" },
+  'threats_detected': { EN: "Threats Detected", HI: "खतरे की पहचान" },
+  'resilience_score': { EN: "Resilience Score", HI: "लचीलापन स्कोर" },
+  'health_index_label': { EN: "Health Index", HI: "स्वास्थ्य सूचकांक" },
+  'geotagged_map': { EN: "GEOTAGGED BIOSPHERE MAP", HI: "जियोटैग्ड बायोस्फीयर मैप" },
+  'map_desc': { EN: "Visualize infection clusters and manage field operations.", HI: "संक्रमण समूहों की कल्पना करें और कृषि गतिविधियों का प्रबंधन करें।" },
+  'launch_map': { EN: "LAUNCH MAP", HI: "नक्शा खोलें" },
+  'systems_audit': { EN: "Real-time Systems Audit", HI: "रीयल-टाइम सिस्टम ऑडिट" },
+  'weekly_efficiency': { EN: "Weekly Efficiency", HI: "साप्ताहिक दक्षता" },
+  'diagnostic_sessions': { EN: "Active diagnostic sessions", HI: "सक्रिय नैदानिक सत्र" },
+  'blight_cases': { EN: "Blight & infection cases", HI: "झुलसा और संक्रमण के मामले" },
+  'health_preservation': { EN: "Crop health preservation", HI: "फसल स्वास्थ्य संरक्षण" },
+  'verified_samples': { EN: "Verified healthy samples", HI: "सत्यापित स्वस्थ नमूने" }
 };
 
 interface LanguageContextType {

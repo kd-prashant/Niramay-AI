@@ -71,7 +71,7 @@ export default function AIChatAssistant({ scanContext }: { scanContext?: string 
       <motion.button
         whileHover={{ scale: 1.1, rotate: 5 }}
         whileTap={{ scale: 0.9 }}
-        onClick={() => setIsOpen(true)}
+        onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-10 right-10 z-[100] w-20 h-20 rounded-full bg-veridian-500 text-white shadow-[0_20px_40px_-10px_rgba(34,197,94,0.5)] flex items-center justify-center group border-4 border-white/20 overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent pointer-events-none" />
