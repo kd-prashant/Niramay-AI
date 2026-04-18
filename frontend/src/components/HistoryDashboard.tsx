@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
-import { Calendar, Trash2, ChevronRight, Activity, Sprout, Lock } from 'lucide-react';
+import { Calendar, Trash2, ChevronRight, Activity, Sprout, Lock, FileText } from 'lucide-react';
 
 interface ScanRecord {
   id: number;
@@ -149,9 +149,67 @@ export default function HistoryDashboard() {
                     })}
                   </span>
                 </div>
-                <button className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-veridian-500 hover:text-white transition-all">
-                  <ChevronRight size={20} />
-                </button>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => {
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <html>
+                            <head>
+                              <title>Niramay AI - Health Report</title>
+                              <style>
+                                body { font-family: sans-serif; padding: 40px; color: #111; }
+                                .header { border-bottom: 4px solid #22c55e; padding-bottom: 20px; margin-bottom: 40px; }
+                                .logo { font-size: 24px; font-weight: 900; letter-spacing: -1px; }
+                                .cert-title { font-size: 48px; font-weight: 900; text-transform: uppercase; margin: 20px 0; }
+                                .section { margin-bottom: 30px; }
+                                .label { font-size: 12px; font-weight: 900; color: #666; text-transform: uppercase; letter-spacing: 2px; }
+                                .value { font-size: 24px; font-weight: bold; margin-top: 5px; }
+                                .footer { margin-top: 100px; border-top: 1px solid #eee; pt: 20px; font-size: 10px; color: #999; text-transform: uppercase; }
+                              </style>
+                            </head>
+                            <body>
+                              <div className="header">
+                                <div className="logo">NIRAMAY AI <span style="color:#22c55e">ENGINE</span></div>
+                              </div>
+                              <div className="cert-title">Health Certificate</div>
+                              <div className="section">
+                                <div className="label">Sample Identity</div>
+                                <div className="value">${scan.plant_name}</div>
+                              </div>
+                              <div className="section">
+                                <div className="label">Diagnostic Result</div>
+                                <div className="value" style="color: #ef4444">${scan.disease_status}</div>
+                              </div>
+                              <div className="section">
+                                <div className="label">AI Confidence Index</div>
+                                <div className="value">${scan.confidence}%</div>
+                              </div>
+                              <div className="section">
+                                <div className="label">Audit Timestamp</div>
+                                <div className="value">${new Date(scan.created_at).toLocaleString()}</div>
+                              </div>
+                              <div className="footer">
+                                This is a computer generated diagnostic report from Niramay AI Ecosystem.
+                                Verification ID: ${scan.id}
+                              </div>
+                              <script>window.print();</script>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                      }
+                    }}
+                    className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-white/40 hover:text-white transition-all flex items-center gap-2 group"
+                  >
+                    <FileText size={20} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">Report</span>
+                  </button>
+                  <button className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-veridian-500 hover:text-white transition-all">
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
               </div>
 
               {/* GLASS DECORATION */}

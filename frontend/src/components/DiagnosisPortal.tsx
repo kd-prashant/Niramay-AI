@@ -6,7 +6,7 @@ import {
   Upload, X, ShieldCheck, Microscope,
   CheckCircle2, Sprout,
   Activity, ArrowRight,
-  CloudRain, MapPin, Search
+  CloudRain, MapPin, Search, History
 } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
@@ -74,7 +74,8 @@ export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (diseas
     formData.append("file", image);
 
     try {
-      const response = await fetch("http://localhost:8000/predict", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${apiUrl}/predict`, {
         method: "POST",
         body: formData,
       });
@@ -125,6 +126,7 @@ export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (diseas
             console.error("Supabase Sync Error:", error.message);
           } else {
             console.log("✓ Scan saved successfully to your database.");
+            fetchLiveHistory(); // Refresh the marquee immediately!
           }
         } catch (dbError) {
           console.error("Critical: Database sync failed:", dbError);
@@ -138,12 +140,42 @@ export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (diseas
     }
   };
 
-  const historyItems = [
-    { date: "SEP 15", plant: "POTATO", status: "RECOVERED", color: "bg-veridian-500" },
-    { date: "SEP 05", plant: "TOMATO", status: "EARLY BLIGHT", color: "bg-red-500" },
-    { date: "OCT 24", plant: "TOMATO", status: "HEALTHY", color: "bg-veridian-500" },
-    { date: "NOV 12", plant: "POTATO", status: "MONITORING", color: "bg-amber-500" },
-  ];
+  const [historyItems, setHistoryItems] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (user) {
+      fetchLiveHistory();
+    }
+  }, [user]);
+
+  async function fetchLiveHistory() {
+    if (!user?.id) return; // Prevent "invalid input syntax for type uuid"
+
+    try {
+      const { data, error } = await supabase
+        .from('scans')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(6);
+      
+      if (error) throw error;
+      if (data) {
+        setHistoryItems(data.map(item => ({
+          id: item.id,
+          date: new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase(),
+          plant: item.plant_name || 'Unknown',
+          status: (item.disease_status || 'Unknown').replace(/___/g, ' ').replace(/_/g, ' '),
+          color: (item.disease_status || '').toLowerCase().includes('healthy') || (item.disease_status || '').toLowerCase().includes('recovered') ? "bg-veridian-500" : 
+                 (item.disease_status || '').toLowerCase().includes('blight') || (item.disease_status || '').toLowerCase().includes('spot') ? "bg-red-500" : "bg-amber-500",
+          img: item.image_url || null,
+          confidence: item.confidence
+        })));
+      }
+    } catch (err: any) {
+      console.error("Timeline Fetch Error:", err.message || err, err.stack);
+    }
+  }
 
   return (
     <motion.div
@@ -327,42 +359,69 @@ export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (diseas
                 animate={{ opacity: 1, scale: 1 }}
                 className="space-y-6"
               >
-                <div className={`p-10 rounded-[50px] transition-all duration-700 ${result.prediction.severity === 'None' ? 'bg-veridian-600' :
-                    result.prediction.severity === 'Critical' ? 'bg-red-600 shadow-[0_40px_100px_rgba(239,68,68,0.4)]' : 'bg-amber-600 shadow-[0_40px_100px_rgba(245,158,11,0.4)]'
-                  } text-white`}>
-                  <h2 className="text-4xl md:text-5xl font-black mb-3 tracking-tighter leading-none">{t(result.prediction.common_name)}</h2>
-                  <p className="text-sm opacity-60 font-black uppercase tracking-widest mb-10">{result.prediction.class_name}</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-black/10 rounded-3xl p-8 border border-white/10 text-center">
-                      <span className="block text-4xl font-black">{result.prediction.confidence}%</span>
-                      <span className="text-[10px] uppercase font-black opacity-40">{t('confidence')}</span>
-                    </div>
-                    <div className="bg-black/10 rounded-3xl p-8 border border-white/10 text-center">
-                      <span className="block text-4xl font-black">{t(result.prediction.severity)}</span>
-                      <span className="text-[10px] uppercase font-black opacity-40">{t('severity')}</span>
+                <div 
+                   className={`relative overflow-hidden p-8 md:p-10 rounded-[40px] bg-zinc-900 border border-white/10 ${result.prediction.severity === 'None' ? 'shadow-[0_10px_60px_rgba(34,197,94,0.15)]' :
+                    result.prediction.severity === 'Critical' ? 'shadow-[0_10px_60px_rgba(239,68,68,0.15)]' : 'shadow-[0_10px_60px_rgba(245,158,11,0.15)]'}`}
+                >
+                  <div className={`absolute top-0 right-0 w-[400px] h-[400px] rounded-full blur-[100px] opacity-20 pointer-events-none -translate-y-1/2 translate-x-1/3 ${result.prediction.severity === 'None' ? 'bg-veridian-500' :
+                      result.prediction.severity === 'Critical' ? 'bg-red-500' : 'bg-amber-500'
+                    }`} />
+                  
+                  <div className="relative z-10">
+                    <p className="text-[10px] md:text-xs text-white/40 font-black uppercase tracking-[0.3em] mb-2">
+                       {result.prediction.class_name.replace(/___/g, ' - ').replace(/_/g, ' ')}
+                    </p>
+                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-8 tracking-tighter leading-[0.9] text-white">{t(result.prediction.common_name)}</h2>
+                    
+                    <div className="grid grid-cols-2 gap-3 md:gap-4">
+                      <div className="bg-black/40 backdrop-blur-xl rounded-[24px] p-5 md:p-6 text-center border border-white/5 shadow-xl flex flex-col justify-center">
+                        <span className={`block text-3xl md:text-4xl font-black tracking-tighter mb-1 ${result.prediction.severity === 'None' ? 'text-veridian-500' : result.prediction.severity === 'Critical' ? 'text-red-500' : 'text-amber-500'}`}>{result.prediction.confidence}%</span>
+                        <span className="text-[9px] md:text-[10px] uppercase font-black tracking-[0.2em] text-white/30 block mt-auto pt-1">{t('confidence')}</span>
+                      </div>
+                      <div className="bg-black/40 backdrop-blur-xl rounded-[24px] p-5 md:p-6 text-center border border-white/5 shadow-xl flex flex-col justify-center shrink-0">
+                        <span 
+                           className={`block font-black tracking-tighter mb-1 leading-none ${result.prediction.severity === 'None' ? 'text-veridian-500' : result.prediction.severity === 'Critical' ? 'text-red-500' : 'text-amber-500'}`}
+                           style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)" }}
+                        >
+                          {t(result.prediction.severity)}
+                        </span>
+                        <span className="text-[9px] md:text-[10px] uppercase font-black tracking-[0.2em] text-white/30 block mt-auto pt-2">{t('severity')}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  <div className="p-10 bg-zinc-900 rounded-[50px] border border-white/10 shadow-xl">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-blue-500">{t('treatment_title')}</h4>
-                    <div className="flex flex-wrap gap-3">
+                <div className="space-y-4">
+                  <div className="p-8 md:p-10 bg-black/60 backdrop-blur-2xl rounded-[40px] border border-white/5 relative overflow-hidden shadow-xl">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 blur-[80px] pointer-events-none" />
+                    <h4 className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] mb-6 text-blue-400 flex items-center gap-3">
+                      <Activity size={16} />
+                      {t('treatment_title')}
+                    </h4>
+                    <div className="flex flex-wrap gap-2 md:gap-3">
                       {result.recommendations.treatment.medicines.map((m: string, i: number) => (
-                        <span key={i} className="px-5 py-3 bg-black text-white text-[10px] font-black rounded-2xl border border-white/10">{t(m)}</span>
+                        <span key={i} className="px-5 py-3 md:px-6 md:py-4 bg-zinc-900/80 backdrop-blur-md border border-white/10 text-white/90 text-xs font-bold rounded-full hover:border-blue-500/50 hover:bg-blue-500/10 transition-all cursor-default shadow-md whitespace-nowrap">
+                           {t(m)}
+                        </span>
                       ))}
                     </div>
                   </div>
-                  <div className="p-12 bg-white text-black rounded-[50px] shadow-2xl">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest mb-8 text-veridian-600">{t('action_plan_title')}</h4>
-                    <div className="space-y-6">
+                  
+                  <div className="p-8 md:p-10 bg-zinc-900/90 backdrop-blur-2xl rounded-[40px] border border-white/10 relative overflow-hidden shadow-xl">
+                    <div className="absolute bottom-0 right-0 w-48 h-48 bg-veridian-500/10 blur-[80px] pointer-events-none" />
+                    <h4 className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] mb-6 text-veridian-500 flex items-center gap-3">
+                       <ShieldCheck size={16} />
+                       {t('action_plan_title')}
+                    </h4>
+                    <div className="space-y-5 md:space-y-6 relative z-10">
                       {result.recommendations.treatment.action_plan.map((step: string, i: number) => {
-                        // Strip "1. ", "2. ", etc. from the start of the message if they exist
                         const cleanStep = step.replace(/^\d+\.\s*/, '');
                         return (
-                          <div key={i} className="flex gap-6 items-start">
-                            <span className="text-veridian-600 font-black text-2xl leading-none">{i + 1}</span>
-                            <p className="text-sm font-bold text-black/60 leading-relaxed italic">{t(cleanStep)}</p>
+                          <div key={i} className="flex gap-4 md:gap-6 items-start group">
+                            <div className="w-10 h-10 md:w-12 md:h-12 shrink-0 rounded-[14px] bg-veridian-500/10 border border-veridian-500/20 flex items-center justify-center text-veridian-500 font-black text-lg group-hover:scale-110 group-hover:bg-veridian-500 group-hover:text-black group-hover:rotate-3 transition-all duration-300 shadow-md">
+                              {i + 1}
+                            </div>
+                            <p className="text-sm md:text-base font-medium text-white/60 leading-relaxed pt-2 group-hover:text-white transition-colors duration-300">{t(cleanStep)}</p>
                           </div>
                         );
                       })}
@@ -384,34 +443,64 @@ export default function DiagnosisPortal({ onDiagnosis }: { onDiagnosis?: (diseas
 
         {/* Fading Mask Container */}
         <div
-          className="relative py-12 pause-on-hover"
+          className="relative py-12"
           style={{ maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)' }}
         >
-          <div className="flex gap-4 md:gap-6 w-fit animate-marquee">
-            {[...historyItems, ...historyItems, ...historyItems].map((item, idx) => (
-              <motion.div
-                key={idx}
-                whileHover={{
-                  scale: 1.05,
-                  borderColor: "rgba(34, 197, 94, 0.6)",
-                  boxShadow: "0 0 40px rgba(34, 197, 94, 0.2)",
-                  backgroundColor: "rgba(24, 24, 27, 1)"
-                }}
-                whileTap={{ scale: 0.95 }}
-                className="min-w-[280px] md:min-w-[360px] p-8 md:p-10 bg-zinc-900 rounded-[40px] border border-white/10 transition-all shadow-2xl overflow-hidden cursor-pointer group"
-              >
-                <div className="flex justify-between items-center mb-10">
-                  <span className="text-[11px] font-black uppercase tracking-[0.25em] text-white/60 group-hover:text-white transition-colors">{item.date}</span>
-                  <div className={`px-4 py-1.5 rounded-full ${item.color} text-white font-black text-[9px] uppercase tracking-widest shadow-lg`}>{item.status}</div>
-                </div>
-                <h4 className="text-4xl md:text-5xl font-black tracking-tighter mb-4 text-white uppercase group-hover:text-veridian-500 transition-colors">{item.plant}</h4>
-                <div className="flex items-center gap-3 text-veridian-500/80">
-                  <Activity size={14} className="animate-pulse" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em]">LIVE TELEMETRY</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          {historyItems.length > 0 ? (
+            <div className="flex gap-4 md:gap-6 w-fit animate-marquee hover:[animation-play-state:paused]">
+              {[...historyItems, ...historyItems, ...historyItems].map((item, idx) => (
+                <motion.div
+                  key={idx}
+                  whileHover={{
+                    scale: 1.05,
+                    borderColor: "rgba(34, 197, 94, 0.6)",
+                    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.4)",
+                    backgroundColor: "rgba(24, 24, 27, 1)"
+                  }}
+                  className="min-w-[320px] md:min-w-[420px] p-8 md:p-10 bg-zinc-900/80 backdrop-blur-3xl rounded-[50px] border border-white/10 transition-all shadow-2xl relative overflow-hidden cursor-pointer group"
+                >
+                  <div className="flex justify-between items-start mb-12">
+                     <div className="space-y-1">
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">{item.date}</span>
+                        <h4 className="text-3xl md:text-5xl font-black tracking-tighter text-white uppercase group-hover:text-veridian-500 transition-colors">{t(item.plant)}</h4>
+                     </div>
+                     <div className={`px-4 py-1.5 rounded-full ${item.color} text-white font-black text-[9px] uppercase tracking-widest shadow-2xl`}>
+                        {t(item.status)}
+                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-veridian-500 overflow-hidden">
+                           {item.img ? <img src={item.img} className="w-full h-full object-cover" /> : <Sprout size={24} />}
+                        </div>
+                        <div className="text-left">
+                            <span className="block text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">{t('Confidence')}</span>
+                            <span className="text-[11px] font-black text-veridian-500">{item.confidence}%</span>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 px-6 py-2 bg-white/5 rounded-full border border-white/10 group-hover:border-veridian-500/50 transition-all">
+                       <Activity size={12} className="text-veridian-500 animate-pulse" />
+                       <span className="text-[9px] font-black uppercase tracking-widest text-white/40">{t('TELEMETRY')}</span>
+                    </div>
+                  </div>
+
+                  {/* DECORATIVE RADIAL GLOW */}
+                  <div className={`absolute -bottom-10 -right-10 w-40 h-40 ${item.color.replace('bg-', 'bg-')}/10 blur-[60px] rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-1000`} />
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-20 bg-white/5 mx-6 rounded-[50px] border border-dashed border-white/10">
+               <div className="text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-veridian-500/10 flex items-center justify-center text-veridian-500 mx-auto">
+                    <History size={32} />
+                  </div>
+                  <p className="text-white/20 font-black uppercase tracking-[0.3em] text-[10px]">Awaiting First Crop Diagnostic Deployment</p>
+               </div>
+            </div>
+          )}
         </div>
       </div>
 

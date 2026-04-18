@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
-import { Activity, ShieldAlert, CheckCircle2, TrendingUp, Zap, Map as MapIcon } from 'lucide-react';
+import { Activity, ShieldAlert, CheckCircle2, TrendingUp, Zap, Map as MapIcon, Thermometer, Droplets, Wind, AlertTriangle } from 'lucide-react';
 import DiseaseMap from './DiseaseMap';
+import { useWeather } from '@/hooks/useWeather';
 
 interface InsightStats {
   totalScans: number;
@@ -18,6 +19,7 @@ interface InsightStats {
 export default function HealthInsights() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const weather = useWeather();
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [stats, setStats] = useState<InsightStats>({
     totalScans: 0,
@@ -26,15 +28,76 @@ export default function HealthInsights() {
     preventionRate: 0
   });
   const [loading, setLoading] = useState(true);
+  const [nearbyThreat, setNearbyThreat] = useState<{ count: number, disease: string } | null>(null);
+
+  // 🌍 GEOSPATIAL RADIUS LOGIC: Calculate Distance (Haversine)
+  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; 
+  };
 
   useEffect(() => {
     if (user) {
       fetchInsightData();
+      const interval = setInterval(fetchInsightData, 5000); 
+      return () => clearInterval(interval);
     }
   }, [user]);
 
+  // 🔔 PROXIMITY SCAN: Check for nearby infections
+  useEffect(() => {
+    if (weather.location !== 'Searching...' && !weather.loading) {
+        checkNearbyThreats();
+    }
+  }, [weather]);
+
+  async function checkNearbyThreats() {
+    try {
+        const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+            .from('scans')
+            .select('latitude, longitude, disease_status')
+            .not('latitude', 'is', null)
+            .gt('created_at', fortyEightHoursAgo)
+            .ilike('disease_status', '%blight%');
+
+        if (error) throw error;
+
+        if (data && data.length > 0 && weather.lat && weather.lng) {
+            const detected = data.filter(scan => {
+                const dist = getDistance(weather.lat!, weather.lng!, scan.latitude, scan.longitude);
+                return dist < 5; // 5km radius
+            });
+
+            if (detected.length > 0) {
+                setNearbyThreat({ count: detected.length, disease: detected[0].disease_status });
+            }
+        }
+    } catch (err) {
+        console.error("Proximity Check Error:", err);
+    }
+  }
+
+  const calculateBlightRisk = () => {
+    if (weather.loading) return { label: 'Analyzing...', color: 'text-white/40', bg: 'bg-white/5' };
+    const isHighHumidity = weather.humidity > 80;
+    const isOptimalTemp = weather.temp >= 15 && weather.temp <= 25;
+    if (isHighHumidity && isOptimalTemp) return { label: t('HIGH RISK'), color: 'text-red-500', bg: 'bg-red-500/10' };
+    if (isHighHumidity || isOptimalTemp) return { label: t('MEDIUM RISK'), color: 'text-orange-500', bg: 'bg-orange-500/10' };
+    return { label: t('LOW RISK'), color: 'text-veridian-500', bg: 'bg-veridian-500/10' };
+  };
+
+  const risk = calculateBlightRisk();
+
   async function fetchInsightData() {
-    if (!user) return;
+    if (!user?.id) return;
     try {
       const { data, error } = await supabase
         .from('scans')
@@ -101,6 +164,36 @@ export default function HealthInsights() {
 
   return (
     <div className="max-w-[1240px] mx-auto px-6 py-20 relative z-10">
+      
+      {/* 🚨 ACTIVE THREAT ALERT BANNER (PHASE 4) */}
+      <AnimatePresence>
+          {nearbyThreat && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="mb-8 p-6 bg-red-600 rounded-3xl border border-red-400 shadow-[0_20px_50px_rgba(220,38,38,0.3)] flex flex-col md:flex-row items-center justify-between gap-6"
+              >
+                  <div className="flex items-center gap-4 text-center md:text-left">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 animate-pulse">
+                          <AlertTriangle size={28} />
+                      </div>
+                      <div>
+                          <h4 className="text-white font-black uppercase tracking-tighter text-xl">Threat Nearby: Outbreak Detected!</h4>
+                          <p className="text-white/80 font-bold text-xs uppercase tracking-widest">
+                            {nearbyThreat.count} critical cases of {nearbyThreat.disease} reported within 5KM of your farm!
+                          </p>
+                      </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsMapOpen(true)}
+                    className="px-8 py-3 bg-white text-red-600 rounded-full font-black uppercase tracking-widest text-[10px] hover:bg-black hover:text-white transition-all shadow-xl"
+                  >
+                      Locate Threats on Map
+                  </button>
+              </motion.div>
+          )}
+      </AnimatePresence>
       <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-8 mb-16">
         <div className="space-y-4">
           <div className="inline-block px-4 py-1.5 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-[0.2em] border border-blue-500/20">
@@ -123,6 +216,55 @@ export default function HealthInsights() {
                 <p className="text-3xl font-black italic">+12.4%</p>
             </div>
         </div>
+      </div>
+
+      {/* 🌪️ ENVIRONMENTAL TELEMETRY HUD (PHASE 4) */}
+      <div className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-8 bg-zinc-900 border border-white/5 rounded-[40px] flex items-center justify-between group overflow-hidden relative">
+              <div className="flex items-center gap-6 relative z-10">
+                  <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-500 flex items-center justify-center border border-orange-500/20">
+                      <Thermometer size={24} />
+                  </div>
+                  <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">{t('local_temp')}</p>
+                      <h5 className="text-3xl font-black italic">{weather.loading ? '--' : `${weather.temp}°C`}</h5>
+                  </div>
+              </div>
+              <div className="text-right relative z-10">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-veridian-500 mb-1">{weather.condition}</p>
+                  <p className="text-xs font-bold text-white/20">{weather.location}</p>
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
+          <div className="p-8 bg-zinc-900 border border-white/5 rounded-[40px] flex items-center justify-between group overflow-hidden relative">
+              <div className="flex items-center gap-6 relative z-10">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center border border-blue-500/20">
+                      <Droplets size={24} />
+                  </div>
+                  <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">{t('air_moisture')}</p>
+                      <h5 className="text-3xl font-black italic">{weather.loading ? '--' : `${weather.humidity}%`}</h5>
+                  </div>
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            className={`p-8 border border-white/5 rounded-[40px] flex items-center justify-between group overflow-hidden relative ${risk.bg} transition-colors duration-700`}
+          >
+              <div className="flex items-center gap-6 relative z-10">
+                  <div className={`w-12 h-12 rounded-2xl bg-white/10 ${risk.color} flex items-center justify-center border border-white/10`}>
+                      <AlertTriangle size={24} />
+                  </div>
+                  <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">{t('blight_advisory')}</p>
+                      <h5 className={`text-2xl font-black italic uppercase ${risk.color}`}>{risk.label}</h5>
+                  </div>
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent opacity-20" />
+          </motion.div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

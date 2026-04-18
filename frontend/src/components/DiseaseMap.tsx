@@ -124,9 +124,33 @@ export default function DiseaseMap({ isOpen, onClose }: { isOpen: boolean, onClo
             {/* Map Body */}
             <div className="flex-grow relative bg-black/20">
               {loading ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-10 bg-zinc-900">
-                    <div className="w-12 h-12 border-4 border-veridian-500/20 border-t-veridian-500 rounded-full animate-spin" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-veridian-500">Initializing Satellite Data</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 z-10 bg-zinc-900 overflow-hidden">
+                    {/* 📡 MODERN RADAR SKELETON */}
+                    <div className="relative">
+                        <motion.div 
+                            animate={{ scale: [1, 1.5, 1], opacity: [0.1, 0.3, 0.1] }}
+                            transition={{ repeat: Infinity, duration: 3 }}
+                            className="absolute inset-0 bg-veridian-500 rounded-full blur-[60px]"
+                        />
+                        <div className="w-[300px] h-[300px] border-2 border-veridian-500/10 rounded-full flex items-center justify-center relative">
+                            <div className="absolute inset-0 border-2 border-veridian-500/5 rounded-full rotate-45" />
+                            <div className="absolute inset-0 border-2 border-veridian-500/5 rounded-full -rotate-45" />
+                            
+                            {/* Scanning Sweep */}
+                            <motion.div 
+                                animate={{ rotate: 360 }}
+                                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                                className="absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-veridian-500/20 rounded-full"
+                            />
+                            
+                            <Activity size={48} className="text-veridian-500 animate-pulse" />
+                        </div>
+                    </div>
+
+                    <div className="text-center space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-veridian-500">Initializing Satellite Data</p>
+                        <p className="text-white/20 text-[9px] font-bold uppercase tracking-widest">Synchronizing Regional Biosphere Nodes...</p>
+                    </div>
                 </div>
               ) : (
                 <div className="h-full w-full grayscale contrast-[1.2] invert brightness-[0.8] opacity-80 opacity-transition hover:grayscale-0 hover:invert-0 hover:brightness-100 transition-all duration-1000">

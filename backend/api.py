@@ -15,6 +15,7 @@ import uvicorn
 from constants import DISEASE_METADATA, DEFAULT_METADATA
 from pydantic import BaseModel
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 # Load security environment variables
@@ -148,10 +149,116 @@ async def get_classes():
         "classes": class_names
     }
 
+async def verify_plant_with_vision(image_bytes: bytes) -> dict:
+    """
+    Stage 1: Use Gemini Vision to verify if the image contains a plant/leaf.
+    Returns: { "is_plant": bool, "plant_type": str, "description": str }
+    """
+    if not client:
+        # Fallback: if Gemini isn't available, skip verification
+        return {"is_plant": True, "plant_type": "unknown", "description": "Verification unavailable"}
+    
+    try:
+        image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+        
+        prompt = (
+            "Analyze this image carefully. Answer in STRICT JSON format only, no extra text.\n"
+            "{\n"
+            '  "is_plant": true/false,\n'
+            '  "plant_type": "exact plant/crop name if identifiable, else unknown",\n'
+            '  "description": "brief visual description of what you see"\n'
+            "}\n\n"
+            "Rules:\n"
+            "- is_plant must be TRUE only if the image clearly shows a plant, leaf, crop, or vegetation.\n"
+            "- is_plant must be FALSE for animals, people, objects, screens, food, etc.\n"
+            "- If it IS a plant, identify the species/crop name as precisely as possible.\n"
+        )
+        
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=[image_part, prompt]
+        )
+        
+        # Parse the JSON from Gemini's response
+        raw = response.text.strip()
+        # Handle markdown code blocks if Gemini wraps the JSON
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+        
+        result = json.loads(raw)
+        return result
+        
+    except Exception as e:
+        print(f"Vision Verification Warning: {e}")
+        # On failure, allow the image through (don't block the user)
+        return {"is_plant": True, "plant_type": "unknown", "description": "Verification failed"}
+
+
+async def diagnose_with_vision(image_bytes: bytes, plant_type: str) -> dict:
+    """
+    Stage 3: Use Gemini Vision to diagnose an unknown plant that our local model can't handle.
+    Returns data in the SAME format as our local model response.
+    """
+    if not client:
+        return None
+    
+    try:
+        image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+        
+        prompt = (
+            f"You are an expert plant pathologist. The plant in this image has been identified as: '{plant_type}'.\n"
+            "Analyze the leaf/plant for any diseases, infections, or health issues.\n"
+            "Respond in STRICT JSON format only, no extra text:\n"
+            "{\n"
+            '  "common_name": "Disease name or Healthy Plant",\n'
+            '  "class_name": "technical_classification_name",\n'
+            '  "confidence": 85,\n'
+            '  "severity": "None/Low/Moderate/High/Critical",\n'
+            '  "treatment": {\n'
+            '    "medicines": ["medicine1", "medicine2"],\n'
+            '    "organic": ["organic solution 1", "organic solution 2"],\n'
+            '    "action_plan": ["1. Step one.", "2. Step two.", "3. Step three."]\n'
+            '  },\n'
+            '  "prevention": "Prevention advice here"\n'
+            "}\n\n"
+            "Rules:\n"
+            "- confidence should be your realistic estimate (0-100).\n"
+            "- If the plant looks healthy, set severity to None and common_name to 'Healthy [Plant Name]'.\n"
+            "- Provide real, scientifically accurate medicines and treatments.\n"
+        )
+        
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=[image_part, prompt]
+        )
+        
+        raw = response.text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+        
+        return json.loads(raw)
+        
+    except Exception as e:
+        print(f"Vision Diagnosis Error: {e}")
+        return None
+
+
+# Known crops that our local model handles well
+KNOWN_CROPS = ["potato", "tomato", "pepper", "bell pepper"]
+
 @app.post("/predict")
 async def predict_disease(file: UploadFile = File(...)):
     """
-    Predict crop disease with confidence scores and detailed recommendations
+    Universal Plant Disease Predictor - 3-Stage Pipeline:
+    Stage 1: Gemini Vision verifies it's a plant (rejects non-botanical subjects)
+    Stage 2: Local TF model for known crops (fast, precise)
+    Stage 3: Gemini Vision fallback for unknown plant species (universal)
     """
     if model is None or class_names is None:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -162,18 +269,13 @@ async def predict_disease(file: UploadFile = File(...)):
     try:
         image_data = await file.read()
         image = Image.open(BytesIO(image_data))
-        processed_image = preprocess_image(image)
         
-        # 🛡️ BIOLOGICAL SIGNATURE CHECK (UNIVERSAL FIX)
-        # Check if the image contains enough "Botany" colors (Greens, Yellows, Browns)
-        hsv_image = image.convert('HSV')
-        h = np.array(hsv_image.split()[0]) # Hue channel
-        # Leaves are typically in Hue 30-90 (Green) or 0-30 (Yellow/Brown/Diseased)
-        # We check if a decent % of pixels fall in the plant range
-        plant_pixels = np.sum((h < 90) & (h > 10)) 
-        is_biological = (plant_pixels / (image.size[0] * image.size[1])) > 0.15
-
-        if not is_biological:
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # STAGE 1: VISUAL GATEKEEPER (Is it a plant?)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        verification = await verify_plant_with_vision(image_data)
+        
+        if not verification.get("is_plant", False):
             return {
                 "success": True,
                 "prediction": {
@@ -183,18 +285,79 @@ async def predict_disease(file: UploadFile = File(...)):
                     "severity": "None"
                 },
                 "recommendations": {
-                    "treatment": {"medicines": ["N/A"], "organic": ["N/A"], "action_plan": ["Please upload a clear photo of a crop leaf."]},
+                    "treatment": {
+                        "medicines": ["N/A"],
+                        "organic": ["N/A"],
+                        "action_plan": [
+                            f"Detected: {verification.get('description', 'Non-plant object')}.",
+                            "Please upload a clear photo of a plant leaf or crop.",
+                            "Ensure the leaf fills most of the frame for best results."
+                        ]
+                    },
                     "prevention": ["N/A"]
                 }
             }
-
-        # Inference
+        
+        detected_plant = verification.get("plant_type", "unknown").lower()
+        
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # STAGE 2: LOCAL MODEL (For known crops)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        is_known_crop = any(crop in detected_plant for crop in KNOWN_CROPS)
+        
+        if is_known_crop:
+            processed_image = preprocess_image(image)
+            predictions = model.predict(processed_image, verbose=0)
+            predicted_class_idx = np.argmax(predictions[0])
+            confidence = float(predictions[0][predicted_class_idx]) * 100
+            disease_name = class_names[predicted_class_idx]
+            
+            metadata = get_recommendation(disease_name)
+            
+            return {
+                "success": True,
+                "prediction": {
+                    "class_name": disease_name,
+                    "common_name": metadata["common_name"],
+                    "confidence": round(confidence, 2),
+                    "severity": metadata["severity"]
+                },
+                "recommendations": {
+                    "treatment": metadata["treatment"],
+                    "prevention": metadata["prevention"]
+                }
+            }
+        
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # STAGE 3: UNIVERSAL ENGINE (For unknown plants)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        vision_result = await diagnose_with_vision(image_data, detected_plant)
+        
+        if vision_result:
+            return {
+                "success": True,
+                "prediction": {
+                    "class_name": vision_result.get("class_name", f"{detected_plant}_analysis"),
+                    "common_name": vision_result.get("common_name", detected_plant.title()),
+                    "confidence": vision_result.get("confidence", 75),
+                    "severity": vision_result.get("severity", "Moderate")
+                },
+                "recommendations": {
+                    "treatment": vision_result.get("treatment", {
+                        "medicines": ["Consult a local agricultural expert"],
+                        "organic": ["General plant hygiene"],
+                        "action_plan": ["1. Isolate the plant.", "2. Monitor for changes.", "3. Seek expert advice."]
+                    }),
+                    "prevention": vision_result.get("prevention", "Maintain good crop hygiene and nutrition.")
+                }
+            }
+        
+        # Final fallback: if everything fails, use local model anyway
+        processed_image = preprocess_image(image)
         predictions = model.predict(processed_image, verbose=0)
         predicted_class_idx = np.argmax(predictions[0])
         confidence = float(predictions[0][predicted_class_idx]) * 100
         disease_name = class_names[predicted_class_idx]
-        
-        # Get enriched metadata
         metadata = get_recommendation(disease_name)
         
         return {
@@ -228,19 +391,24 @@ async def chat_with_assistant(request: ChatRequest):
         primary_lang = "HINDI" if request.language == "HI" else "ENGLISH"
         
         system_persona = (
-            "You are the Niramay AI Plant Doctor, a world-class agricultural expert. "
-            "Your tone is professional, encouraging, and deeply knowledgeable about crops like Tomato, Potato, and Pepper. "
-            f"The user's preferred interface language is {primary_lang}. "
-            "IMPORTANT: If the user asks their question in a specific language (like Hindi or English), "
-            "you MUST respond in that same language regardless of the interface setting. "
-            "Provide specific, actionable steps for treatment and follow-up. "
+            "You are the 'Niramay AI Plant Doctor', an elite digital agronomist. "
+            "Your personality is precise, empathetic, and authoritative. "
+            "You specialize in identifying and treating crop diseases like Late Blight, Bacterial Spot, and Early Blight. "
+            f"The interface is currently set to {primary_lang}, however: "
+            "CRITICAL: If the user asks their question in Hindi, you MUST respond in Hindi. "
+            "CRITICAL: Use Markdown for formatting. Use **Bold** for emphasis, Bullet points for lists, and Header ### for sections. "
+            "STRUCTURE: Always provide: 1. A summary of the problem. 2. A 3-step 'Crisis Protocol'. 3. Both Organic and Chemical options if applicable. "
         )
 
         context_aware_prompt = system_persona
         if request.disease_context:
-            context_aware_prompt += f"The user just scanned a leaf and the diagnosis was: {request.disease_context}. Focus your advice on this specific condition. "
+            context_aware_prompt += (
+                f"\n\nSCAN CONTEXT: The farmer just performed an AI scan. The result was '{request.disease_context}'. "
+                "Instead of asking what the problem is, acknowledge this scan and provide immediate, specific remediation steps "
+                f"for {request.disease_context}. Be decisive."
+            )
         
-        full_query = f"{context_aware_prompt}\n\nFarmer Question: {request.message}"
+        full_query = f"{context_aware_prompt}\n\nFARMER INQUIRY: {request.message}"
 
         # Using the exact alias found in your discovery list
         response = client.models.generate_content(
